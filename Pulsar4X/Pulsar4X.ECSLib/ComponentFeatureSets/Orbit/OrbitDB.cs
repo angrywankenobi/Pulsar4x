@@ -7,47 +7,48 @@ namespace Pulsar4X.ECSLib
 {
     public class OrbitDB : TreeHierarchyDB, IGetValuesHash
     {
-        
+
+        protected KeplerElements elements;
+
         /// <summary>
         /// Stored in Meters
         /// </summary>
         [JsonProperty]
-        public double SemiMajorAxis { get; protected set; }
-        
-        
+        public double SemiMajorAxis => elements.SemiMajorAxis;
+
         /// <summary>
         /// Eccentricity of orbit.
         /// Shape of the orbit. 0 = perfectly circular, 1 = parabolic.
         /// </summary>
         [PublicAPI]
         [JsonProperty]
-        public double Eccentricity { get; protected set; }
+        public double Eccentricity => elements.Eccentricity;
 
-		/// <summary>
-		/// Angle between the orbit and the flat reference plane.
-		/// in radians.
-		/// </summary>
-		[PublicAPI]
+        /// <summary>
+        /// Angle between the orbit and the flat reference plane.
+        /// in radians.
+        /// </summary>
+        [PublicAPI]
         [JsonProperty]
-        public double Inclination { get; protected set; }
-        
+        public double Inclination => elements.Inclination;
+
         /// <summary>
         /// Horizontal orientation of the point where the orbit crosses
         /// the reference frame stored in radians.
         /// </summary>
         [PublicAPI]
         [JsonProperty]
-        public double LongitudeOfAscendingNode { get; protected set; }
-        
-        
+        public double LongitudeOfAscendingNode => elements.LoAN;
+
+
         /// <summary>
         /// Angle from the Ascending Node to the Periapsis stored in radians.
         /// </summary>
         [PublicAPI]
         [JsonProperty]
-        public  double ArgumentOfPeriapsis { get; protected set; }
-        
-        
+        public double ArgumentOfPeriapsis => elements.AoP;
+
+
         /// <summary>
         /// Definition of the position of the body in the orbit at the reference time
         /// epoch. Mathematically convenient angle does not correspond to a real angle.
@@ -55,47 +56,47 @@ namespace Pulsar4X.ECSLib
         /// </summary>
         [PublicAPI]
         [JsonProperty]
-        public double MeanAnomalyAtEpoch { get; protected set; }
-        
+        public double MeanAnomalyAtEpoch => elements.MeanAnomalyAtEpoch;
+
         /// <summary>
         /// reference time. Orbital parameters are stored relative to this reference.
         /// </summary>
         [PublicAPI]
         [JsonProperty]
-        public DateTime Epoch { get; internal set; }
+        public DateTime Epoch => elements.Epoch;
 
-		/// <summary>
-		/// 2-Body gravitational parameter of system in m^3/s^2
-		/// </summary>
-		[PublicAPI]
-		public double GravitationalParameter_m3S2 { get; protected set; }
+        /// <summary>
+        /// 2-Body gravitational parameter of system in m^3/s^2
+        /// </summary>
+        [PublicAPI]
+        public double GravitationalParameter_m3S2 => elements.StandardGravParameter;
 
         public double SOI_m { get; protected set; } = double.MaxValue;
-        
-        
+
+
         /// <summary>
         /// Orbital Period of orbit.
         /// </summary>
         [PublicAPI]
-        public TimeSpan OrbitalPeriod { get; private set; }
+        public TimeSpan OrbitalPeriod => TimeSpan.FromSeconds(elements.Period);
 
-		/// <summary>
-		/// Mean Motion of orbit. in Radians/Sec.
-		/// </summary>
-		[PublicAPI]
-		public double MeanMotion { get; protected set; }
-        
+        /// <summary>
+        /// Mean Motion of orbit. in Radians/Sec.
+        /// </summary>
+        [PublicAPI]
+        public double MeanMotion => elements.MeanMotion;
+
         /// <summary>
         /// Point in orbit furthest from the ParentBody. Measured in AU.
         /// </summary>
         [PublicAPI]
-        public double Apoapsis { get; private set; }
-        
+        public double Apoapsis => elements.Apoapsis;
+
         /// <summary>
         /// Point in orbit closest to the ParentBody. Measured in AU.
         /// </summary>
         [PublicAPI]
-        public double Periapsis { get; private set; }
+        public double Periapsis => elements.Periapsis;
 
         /// <summary>
         /// Stationary orbits don't have all of the data to update. They always return (0, 0).
@@ -199,14 +200,7 @@ namespace Pulsar4X.ECSLib
 
             OrbitDB orbit = new OrbitDB(parent)
             {
-                SemiMajorAxis = ke.SemiMajorAxis,
-                Eccentricity = ke.Eccentricity,
-                Inclination = ke.Inclination,
-                LongitudeOfAscendingNode = ke.LoAN,
-                ArgumentOfPeriapsis = ke.AoP,
-                MeanAnomalyAtEpoch = ke.MeanAnomalyAtEpoch,
-                Epoch = atDateTime,
-
+                elements = ke,
                 _parentMass = parent.GetDataBlob<MassVolumeDB>().MassDry,
                 _myMass = myMass
 
@@ -270,7 +264,7 @@ namespace Pulsar4X.ECSLib
             var r = objPos.Length();
             var i = Math.Atan2(objPos.Z, r);
             var m0 = Math.Atan2(objPos.Y, objPos.X);
-            var orbit = new OrbitDB(parent)
+            var orbit = new OrbitDB(parent, parent.GetDataBlob<MassVolumeDB>().MassDry, objMass, r, 0, i, 0, 0, m0, atDatetime)
             {
                 SemiMajorAxis = r,
                 Eccentricity = 0,
@@ -343,13 +337,15 @@ namespace Pulsar4X.ECSLib
                         double longitudeOfAscendingNode, double argumentOfPeriapsis, double meanAnomaly, DateTime epoch)
             : base(parent)
         {
-            SemiMajorAxis = semiMajorAxis_m;
-            Eccentricity = eccentricity;
-            Inclination = inclination;
-            LongitudeOfAscendingNode = longitudeOfAscendingNode;
-            ArgumentOfPeriapsis = argumentOfPeriapsis;
-            MeanAnomalyAtEpoch = meanAnomaly;
-            Epoch = epoch;
+            IsStationary = false;
+            
+            elements.SemiMajorAxis = semiMajorAxis_m;
+            elements.Eccentricity = eccentricity;
+            elements.Inclination = inclination;
+            elements.LoAN= longitudeOfAscendingNode;
+            elements.AoP = argumentOfPeriapsis;
+            elements.MeanAnomalyAtEpoch = meanAnomaly;
+            elements.Epoch = epoch;
 
             _parentMass = parentMass;
             _myMass = myMass;
@@ -377,15 +373,9 @@ namespace Pulsar4X.ECSLib
                 return;
             }
 
-            SemiMajorAxis = orbit.SemiMajorAxis;
-            Eccentricity = orbit.Eccentricity;
-            Inclination = orbit.Inclination;
-            LongitudeOfAscendingNode = orbit.LongitudeOfAscendingNode;
-            ArgumentOfPeriapsis = orbit.ArgumentOfPeriapsis;
-            MeanAnomalyAtEpoch = orbit.MeanAnomalyAtEpoch;
+            elements = orbit.elements;
             _parentMass = orbit._parentMass;
             _myMass = orbit._myMass;
-            Epoch = orbit.Epoch;
         }
 
         public OrbitDB(OrbitDB toCopy)
@@ -397,15 +387,9 @@ namespace Pulsar4X.ECSLib
                 return;
             }
 
-            SemiMajorAxis = toCopy.SemiMajorAxis;
-            Eccentricity = toCopy.Eccentricity;
-            Inclination = toCopy.Inclination;
-            LongitudeOfAscendingNode = toCopy.LongitudeOfAscendingNode;
-            ArgumentOfPeriapsis = toCopy.ArgumentOfPeriapsis;
-            MeanAnomalyAtEpoch = toCopy.MeanAnomalyAtEpoch;
+            elements = toCopy.elements;
             _parentMass = toCopy._parentMass;
             _myMass = toCopy._myMass;
-            Epoch = toCopy.Epoch;
         }
         #endregion
 
@@ -417,23 +401,9 @@ namespace Pulsar4X.ECSLib
             }
             // Calculate extended parameters.
             // http://en.wikipedia.org/wiki/Standard_gravitational_parameter#Two_bodies_orbiting_each_other
-            GravitationalParameter_m3S2 = GeneralMath.StandardGravitationalParameter(_parentMass + _myMass);
+            elements.StandardGravParameter = GeneralMath.StandardGravitationalParameter(_parentMass + _myMass);
 
-            double orbitalPeriod = 2 * Math.PI * Math.Sqrt(Math.Pow(SemiMajorAxis, 3) / (GravitationalParameter_m3S2));
-            if (orbitalPeriod * 10000000 > long.MaxValue)
-            {
-                OrbitalPeriod = TimeSpan.MaxValue;
-            }
-            else
-            {
-                OrbitalPeriod = TimeSpan.FromSeconds(orbitalPeriod);
-            }
-
-            // http://en.wikipedia.org/wiki/Mean_motion
-            MeanMotion = Math.Sqrt(GravitationalParameter_m3S2 / Math.Pow(SemiMajorAxis, 3)); // Calculated in radians.
-
-            Apoapsis = (1 + Eccentricity) * SemiMajorAxis;
-            Periapsis = (1 - Eccentricity) * SemiMajorAxis;
+            elements.CalculateExtendedParameters();
 
             SOI_m = OrbitMath.GetSOI(SemiMajorAxis, _myMass, _parentMass);
 
@@ -447,23 +417,8 @@ namespace Pulsar4X.ECSLib
 
         public KeplerElements GetElements()
         {
-            KeplerElements ke = new KeplerElements();
-            ke.SemiMajorAxis = SemiMajorAxis;                                            //a
-            ke.SemiMinorAxis = SemiMajorAxis * Math.Sqrt(1 - Eccentricity * Eccentricity);//b
-            ke.Eccentricity = Eccentricity;                                              //e
-            ke.Periapsis = Periapsis;                                                    //q
-            ke.Apoapsis = Apoapsis;                                                      //Q
-            ke.LoAN = LongitudeOfAscendingNode;                                          //Ω (upper case Omega)
-            ke.AoP = ArgumentOfPeriapsis;                                                //ω (lower case omega)
-            ke.Inclination = Inclination;                                                //i
-            ke.MeanMotion = MeanMotion;                                                  //n
-            ke.MeanAnomalyAtEpoch = MeanAnomalyAtEpoch;                                  //M0
-            ke.Epoch = Epoch;
-            ke.LinearEccentricity = Eccentricity * SemiMajorAxis;                        //ae
-            ke.Period = OrbitalPeriod.TotalSeconds;
-            
-            //ke.TrueAnomalyAtEpoch  ;   //ν or f or  θ
-            return ke;
+            return elements;
+			return ke;
         }
 
         public override object Clone()
@@ -501,7 +456,7 @@ namespace Pulsar4X.ECSLib
         OrbitDB(OrbitDB toCopy, SensorInfoDB sensorInfo, Entity parentEntity) : base(parentEntity)
         {
 
-            Epoch = toCopy.Epoch; //This should stay the same
+            elements.Epoch = toCopy.Epoch; //This should stay the same
             IsStationary = toCopy.IsStationary;
             UpdateFromSensorInfo(toCopy, sensorInfo);
 
@@ -513,13 +468,9 @@ namespace Pulsar4X.ECSLib
             double signalBestMagnatude = sensorInfo.HighestDetectionQuality.SignalStrength_kW;
             double signalNowMagnatude = sensorInfo.LatestDetectionQuality.SignalStrength_kW;
 
-
-            SemiMajorAxis = actualDB.SemiMajorAxis;
-            Eccentricity = actualDB.Eccentricity;
-            Inclination = actualDB.Inclination;
-            LongitudeOfAscendingNode = actualDB.LongitudeOfAscendingNode;
-            ArgumentOfPeriapsis= actualDB.ArgumentOfPeriapsis;
-            MeanAnomalyAtEpoch= actualDB.MeanAnomalyAtEpoch;
+            DateTime epoch = elements.Epoch;
+            elements = actualDB.elements;
+            elements.Epoch = epoch;
             _parentMass = actualDB._parentMass;
             _myMass = actualDB._myMass;
             CalculateExtendedParameters();
@@ -548,19 +499,7 @@ namespace Pulsar4X.ECSLib
         {
         }
 
-        public OrbitUpdateOftenDB(OrbitDB orbit) : base(orbit.Parent)
-        {
-            SemiMajorAxis = orbit.SemiMajorAxis;
-            Eccentricity = orbit.Eccentricity;
-            Inclination = orbit.Inclination;
-            LongitudeOfAscendingNode = orbit.LongitudeOfAscendingNode;
-            ArgumentOfPeriapsis = orbit.ArgumentOfPeriapsis;
-            MeanAnomalyAtEpoch = orbit.MeanAnomalyAtEpoch;
-            _parentMass = orbit._parentMass;
-            _myMass = orbit._myMass;
-            Epoch = orbit.Epoch;
-            CalculateExtendedParameters();
-        }
+        public OrbitUpdateOftenDB(OrbitDB orbit) : base(orbit) {}
         
         internal override void OnSetToEntity()
         {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System;
 
 namespace Pulsar4X.Orbital
 {
@@ -101,6 +102,25 @@ namespace Pulsar4X.Orbital
         /// </summary>
         public DateTime Epoch;
 
+
+		public void CalculateExtendedParameters() 
+        {
+
+			Period = 2 * Math.PI * Math.Sqrt(Math.Pow(SemiMajorAxis, 3) / (StandardGravParameter));
+			if (Period * 10000000 > long.MaxValue) {
+				Period = double.MaxValue;
+			}
+
+			// http://en.wikipedia.org/wiki/Mean_motion
+			MeanMotion = Math.Sqrt(StandardGravParameter / Math.Pow(SemiMajorAxis, 3)); // Calculated in radians.
+
+			Apoapsis = (1 + Eccentricity) * SemiMajorAxis;
+			Periapsis = (1 - Eccentricity) * SemiMajorAxis;
+
+			SemiMinorAxis = SemiMajorAxis * Math.Sqrt(1 - Eccentricity * Eccentricity);
+			LinearEccentricity = Eccentricity * SemiMajorAxis;
+
+		}
 	}
 
     public struct StateVectors
