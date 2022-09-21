@@ -172,6 +172,11 @@ namespace Pulsar4X.ImGuiNetUI.EntityManagement
             ImGui.SetNextWindowSize(new Vector2(600f, 400f), ImGuiCond.FirstUseEver);
             if (ImGui.Begin("Nav Control", ref IsActive, _flags))
             {
+                ImGui.Columns(2);
+                BorderGroup.Begin("Nodes");
+                
+                BorderGroup.End(); //ImGui.SameLine();
+                ImGui.NextColumn();
                 BorderGroup.Begin("Mode");
                 if (ImGui.Button("Manual Thrust"))
                 {
@@ -204,6 +209,7 @@ namespace Pulsar4X.ImGuiNetUI.EntityManagement
                 }
 
                 BorderGroup.End();
+                ImGui.Columns(1);
                 ImGui.NewLine();
                 ImGui.Text("Availible Δv: " + Stringify.Velocity(_totalDV));
                 ImGui.Text("Dry Mass:" + Stringify.Mass(_dryMass, "0.######"));
@@ -243,6 +249,7 @@ namespace Pulsar4X.ImGuiNetUI.EntityManagement
         private float _radialDV;
         private float _progradeDV;
         private ManuverNode _node;
+        private RouteTrajectory _routeTrajectory;
         void DisplayThrustMode()
         {
             bool changes = false;
@@ -250,26 +257,51 @@ namespace Pulsar4X.ImGuiNetUI.EntityManagement
             float maxradialDV = (float)(_totalDV - Math.Abs(_progradeDV));
             double tseconds = 0;
                         
+            
+            
+            if (ImGui.Button("-1##pg"))
+            {
+                _progradeDV -= 1;
+                changes = true;
+            } ImGui.SameLine();            
+            if (ImGui.Button("+1##pg"))
+            {
+                _progradeDV += 1;
+                changes = true;
+            }ImGui.SameLine();
             if (ImGui.SliderFloat("Prograde Δv", ref _progradeDV, -maxprogradeDV, maxprogradeDV))
             {
                 //Calcs();
                 changes = true;
-            }
+            } 
+            
+            
+            if (ImGui.Button("-1##rd"))
+            {
+                _radialDV -= 1;
+                changes = true;
+            } ImGui.SameLine();            
+            if (ImGui.Button("+1##rd"))
+            {
+                _radialDV += 1;
+                changes = true;
+            } ImGui.SameLine();
             if (ImGui.SliderFloat("Radial Δv", ref _radialDV, -maxradialDV, maxradialDV))
             {
                 //Calcs();
                 changes = true;
             }
+            
 
             ImGui.Text("Time: " + _atDatetime); ImGui.SameLine();
             
-            if (ImGui.Button("-1"))
+            if (ImGui.Button("-1##t"))
             {
                 _atDatetime -= TimeSpan.FromSeconds(1);
                 tseconds -= 1;
                 changes = true;
             } ImGui.SameLine();            
-            if (ImGui.Button("+1"))
+            if (ImGui.Button("+1##t"))
             {
                 _atDatetime += TimeSpan.FromSeconds(1);
                 tseconds += 1;
@@ -282,14 +314,28 @@ namespace Pulsar4X.ImGuiNetUI.EntityManagement
             //ImGui.Text("Eccentricity: " + Eccentricity.ToString("g3"));
             //return changes;
 
+
+            if (_node is null)
+                _node = new ManuverNode(_orderEntity, _atDatetime);
+            if (_routeTrajectory is null)
+            {
+                _routeTrajectory = new RouteTrajectory(_orderEntity, _node);
+                _routeTrajectory.GetSegment(0).StartPositionDB = _orderEntity.GetDataBlob<PositionDB>();
+                _uiState.SelectedSysMapRender.SelectedEntityExtras.Add(_routeTrajectory);
+            }
             if (changes)
             {
-                if (_node is null)
-                    _node = new ManuverNode(_orderEntity, _atDatetime);
-                
                 _node.ManipulateNode(_progradeDV, _radialDV, 0, tseconds);
+                _routeTrajectory.UpdateNode(0);
             }
-
+            
+            if (!_uiState.SelectedSysMapRender.SelectedEntityExtras.Contains(_routeTrajectory))
+                _uiState.SelectedSysMapRender.SelectedEntityExtras.Add(_routeTrajectory);
+            var deltat = _node.NodeTime - _orderEntity.Manager.StarSysDateTime;
+            ImGui.Text("node in: " + deltat);
+            var span = _routeTrajectory.GetSegment(0).SegmentTimeSpan;
+            ImGui.Text("Span: " + span);
+            
 
         }
 
